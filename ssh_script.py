@@ -83,8 +83,8 @@ def execute_ssh_command(host, command):
 
 
 if __name__ == "__main__":
-    host = '186.0.255.33' 
-    ip_analizer = '200.59.198.196 '
+    host = '186.0.255.34' 
+    ip_analizer = '186.0.196.39 '
     command_route = 'show route '
     command_route += ip_analizer
     command_configuration = 'show configuration | display set | match ' 
@@ -125,4 +125,4 @@ if __name__ == "__main__":
     print('IUS: ', id_service)
     
 if error:    
-    print("Error:", error)
+    print("Error: ", error)
