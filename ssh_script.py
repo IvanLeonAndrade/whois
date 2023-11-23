@@ -88,8 +88,6 @@ if __name__ == "__main__":
     output, error = execute_ssh_command(host, command_route)
     # Segundo show route donde aprendo la IP
     host_nex_hop = find_relevant_hop(output, ip_analizer)
-    print(host_nex_hop)
-    #sys.exit()
     search_segments = '.'.join(ip_analizer.split('.')[:3])
 
     if (not host_nex_hop) and (search_segments in output):
