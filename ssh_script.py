@@ -17,6 +17,18 @@ def find_sub_interface(output):
             return match
     return None
 
+def find_relevant_sub_interface(output, search_ip):
+    # Descomponer la IP de búsqueda en sus primeros tres segmentos
+    search_segments = '.'.join(search_ip.split('.')[:3])
+
+    # Buscar en la salida del comando una entrada que coincida con esos segmentos
+    pattern = re.compile(rf'{search_segments}\.\d+/\d+.*?via (\S+)', re.DOTALL)
+    match = pattern.search(output)
+
+    if match:
+        return match.group(1)  # Devuelve la subinterfaz encontrada después de 'via'
+    return None
+
 def find_sub_interface_vlan(subinterface):
     # Busca un patrón que corresponda a los números después del punto en la subinterfaz
     match = re.search(r'\.(\d+)', subinterface)
@@ -87,13 +99,12 @@ if __name__ == "__main__":
 
     # Segundo show route donde aprendo la IP
     host_nex_hop = find_relevant_hop(output, ip_analizer)
-    print(host_nex_hop)
-    sys.exit()
+    
 
     # Obtengo la sub IF del cliente que usa la IP
     output, error = execute_ssh_command(host_nex_hop, command_route)
     print(output)
-    sub_interface = find_sub_interface(output)
+    sub_interface = find_relevant_sub_interface(output, ip_analizer)
 
     # Obtengo la vlan de la sub IF
     sub_interface_vlan = find_sub_interface_vlan(sub_interface)
@@ -107,10 +118,10 @@ if __name__ == "__main__":
 
     # Obtengo el ID de servicio
     id_service = find_id_service(output)
-    print('nex-hop: ', host_nex_hop)
-    print('sub IF: ', sub_interface)
-    print('sub IF vlan: ', sub_interface_vlan)
-    print('IUS', id_service)
-
+    print('host_nex_hop: ', host_nex_hop)
+    print('sub_interface', sub_interface)
+    print('sub_interface_vlan: ', sub_interface_vlan)
+    print('IUS: ', id_service)
+    
 if error:    
     print("Error:", error)
