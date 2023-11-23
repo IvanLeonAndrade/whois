@@ -9,7 +9,7 @@ def find_next_hop(output):
         return match.group(1)  # Devuelve la dirección IP encontrada
     return None
 
-def find_subinterface(output):
+def find_client_subinterface(output):
     # Busca un patrón que corresponda a una subinterfaz después de la palabra 'via', excluyendo 'ae0.0'
     matches = re.findall(r'via ((?!ae0\.0)\S+)', output)
     for match in matches:
@@ -17,7 +17,7 @@ def find_subinterface(output):
             return match
     return None
 
-def find_subinterface_number(subinterface):
+def find_subinterface_vlan(subinterface):
     # Busca un patrón que corresponda a los números después del punto en la subinterfaz
     match = re.search(r'\.(\d+)', subinterface)
     if match:
@@ -50,16 +50,15 @@ def execute_ssh_command(host, port, username, password, command):
 
     return output, error
 
-    return output, error
+    
 
 if __name__ == "__main__":
 
-    host = '186.0.255.32' # Elijo cualquier PE
+    host = '186.0.255.29' # PE Cualquiera
     port = 22
     username = 'iandrade'
     password = 'transistor13'
-    #command = 'show route 186.0.196.225' # IP a analizar
-    command = 'show route 200.59.198.196'
+    command = 'show route 186.0.123.134'
     ip_from = None #IP del PE donde aprende la IP a analizar
     host2 = None
     id_service = None
@@ -75,17 +74,21 @@ if __name__ == "__main__":
     # Ahora me conecto al PE con la IP de ip_from
     host2 = ip_from # Elijo cualquier PE
     output, error = execute_ssh_command(host2, port, username, password, command)
-    sub_interface = find_subinterface(output)
-    sub_interface_vlan = find_subinterface_number(sub_interface)
-   
-
-    # ahora veo la config de esa vlan en el PE principal 
-    command2 = 'show configuration | display set | match {}'.format(sub_interface_vlan)
-    #print('comando 2', command2)
-    output, error = execute_ssh_command(host2, port, username, password, command2)
     #print(output)
-    id_service = find_id_service(output)
-
+    sub_interface = find_client_subinterface(output)
+    #print('valor sub_IF', sub_interface)
+    if sub_interface:
+        sub_interface_vlan = find_subinterface_vlan(sub_interface)
+        # ahora veo la config de esa vlan en el PE principal 
+        command2 = 'show configuration | display set | match {}'.format(sub_interface_vlan)
+        #print('comando 2', command2)
+        output, error = execute_ssh_command(host2, port, username, password, command2)
+        #print(output)
+        id_service = find_id_service(output)
+    else:
+        print("No se encontró la subinterfaz adecuada.")
+        sub_interface_vlan = None
+   
     print("IP FROM: ", ip_from)
     print("SUB IF ", sub_interface)
     print("SUB IF VLAN ", sub_interface_vlan)
