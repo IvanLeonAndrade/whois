@@ -36,11 +36,20 @@ def find_relevant_sub_interface(output, search_ip):
         return match.group(1)  # Devuelve la subinterfaz encontrada después de 'via'
     return None
 
-def find_sub_interface_vlan(subinterface):
-    # Busca un patrón que corresponda a los números después del punto en la subinterfaz
-    match = re.search(r'\.(\d+)', subinterface)
+def find_sub_interface_vlan(subinterface, search_ip):
+    # Descomponer la IP de búsqueda en sus primeros tres segmentos
+    search_segments = '.'.join(search_ip.split('.')[:3])
+
+    # Buscar en la salida del comando una entrada que coincida con esos segmentos y tenga una subinterfaz
+    pattern = re.compile(rf'{search_segments}\.\d+/\d+.*?via (\S+\.\d+)', re.DOTALL)
+    match = pattern.search(output)
+
     if match:
-        return match.group(1)  # Devuelve solo los números después del punto
+        subinterface = match.group(1)
+        # Extraer la VLAN de la subinterfaz
+        vlan_match = re.search(r'\.(\d+)', subinterface)
+        if vlan_match:
+            return vlan_match.group(1)  # Devuelve solo los números después del punto (VLAN)
     return None
 
 def find_id_service(output):
@@ -74,8 +83,8 @@ def execute_ssh_command(host, command):
 
 
 if __name__ == "__main__":
-    host = '186.0.255.41' 
-    ip_analizer = '200.61.16.80'
+    host = '186.0.255.33' 
+    ip_analizer = '200.59.198.196 '
     command_route = 'show route '
     command_route += ip_analizer
     command_configuration = 'show configuration | display set | match ' 
@@ -94,7 +103,7 @@ if __name__ == "__main__":
         # La IP objetivo es manejada localmente
         output, error = execute_ssh_command(host, command_route)
         sub_interface = find_relevant_sub_interface(output, ip_analizer)
-        sub_interface_vlan = find_sub_interface_vlan(sub_interface)
+        sub_interface_vlan = find_sub_interface_vlan(sub_interface, ip_analizer)
 
         command_configuration += sub_interface_vlan
         output, error = execute_ssh_command(host, command_configuration)
@@ -104,7 +113,7 @@ if __name__ == "__main__":
         # La IP objetivo es manejada remotamente
         output, error = execute_ssh_command(host_nex_hop, command_route)
         sub_interface = find_relevant_sub_interface(output, ip_analizer)
-        sub_interface_vlan = find_sub_interface_vlan(sub_interface)
+        sub_interface_vlan = find_sub_interface_vlan(sub_interface, ip_analizer)
 
         command_configuration += sub_interface_vlan
         output, error = execute_ssh_command(host_nex_hop, command_configuration)
