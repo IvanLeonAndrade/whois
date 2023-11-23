@@ -58,34 +58,37 @@ if __name__ == "__main__":
     port = 22
     username = 'iandrade'
     password = 'transistor13'
-    command = 'show route 186.0.196.225' # IP a analizar
+    #command = 'show route 186.0.196.225' # IP a analizar
+    command = 'show route 200.59.198.196'
     ip_from = None #IP del PE donde aprende la IP a analizar
     host2 = None
     id_service = None
 
     # Me conecto al PE con IP 186.0.255.32 y  ejecuto el primer command
     output, error = execute_ssh_command(host, port, username, password, command)
-    print("Salida primer PE:", output)
+    #print(output)
     
     # El resultado anterior lo filtro para tener la IP del PE donde aprendo la IP del comando principal
     ip_from = find_next_hop(output)
-    print("IP FROM: ", ip_from)
+
 
     # Ahora me conecto al PE con la IP de ip_from
     host2 = ip_from # Elijo cualquier PE
     output, error = execute_ssh_command(host2, port, username, password, command)
     sub_interface = find_subinterface(output)
     sub_interface_vlan = find_subinterface_number(sub_interface)
-    print("SUB IF ", sub_interface)
-    print("SUB IF VLAN ", sub_interface_vlan)
+   
 
     # ahora veo la config de esa vlan en el PE principal 
     command2 = 'show configuration | display set | match {}'.format(sub_interface_vlan)
-    print('comando 2', command2)
+    #print('comando 2', command2)
     output, error = execute_ssh_command(host2, port, username, password, command2)
-    print(output)
-
+    #print(output)
     id_service = find_id_service(output)
+
+    print("IP FROM: ", ip_from)
+    print("SUB IF ", sub_interface)
+    print("SUB IF VLAN ", sub_interface_vlan)
     print('IUS: ', id_service)
 
 
