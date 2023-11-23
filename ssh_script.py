@@ -1,8 +1,7 @@
+
 import paramiko
-import sys
 import re
 
-# Busca un patrón que corresponda a una dirección IP después de la palabra 'from'
 def find_relevant_hop(output, search_ip):
     # Descomponer la IP de búsqueda en sus primeros tres segmentos
     search_segments = '.'.join(search_ip.split('.')[:3])
@@ -19,10 +18,9 @@ def find_relevant_hop(output, search_ip):
             if from_ip:
                 return from_ip.group(1)  # Devuelve la dirección IP encontrada después de 'from'
         else:
-            # No hay cláusula 'from', asumir que es el mismo equipo
+            # No hay cláusula 'from', se asume que es el mismo PE
             return None
     return None
-
 
 def find_relevant_sub_interface(output, search_ip):
     # Descomponer la IP de búsqueda en sus primeros tres segmentos
@@ -33,7 +31,7 @@ def find_relevant_sub_interface(output, search_ip):
     match = pattern.search(output)
 
     if match:
-        return match.group(1)  # Devuelve la subinterfaz encontrada después de 'via'
+        return match.group(1)  # Retorna la subinterfaz encontrada después de 'via'
     return None
 
 def find_sub_interface_vlan(subinterface, search_ip):
@@ -49,7 +47,7 @@ def find_sub_interface_vlan(subinterface, search_ip):
         # Extraer la VLAN de la subinterfaz
         vlan_match = re.search(r'\.(\d+)', subinterface)
         if vlan_match:
-            return vlan_match.group(1)  # Devuelve solo los números después del punto (VLAN)
+            return vlan_match.group(1)  # Retorna los números después del punto (VLAN)
     return None
 
 def find_id_service(output):
@@ -81,7 +79,14 @@ def execute_ssh_command(host, command):
     return output, error
 
 
+    '''
+        @ip_analizer: IP de busqueda/objetivo
+        @host_nex_hop: IP del PE donde se aprende la ip_analizer
+        @host: PE inicial. No importa el PE de origen
 
+        Los comandos se concatenaron con la ip_analizer ya que
+        urgia trabajar con esta IP sin ejecutar comandos.
+    '''
 if __name__ == "__main__":
     host = '186.0.255.34' 
     ip_analizer = '186.0.196.39 '
@@ -93,14 +98,19 @@ if __name__ == "__main__":
     sub_interface = None
     sub_interface_vlan = None
     
-    # primer show route en PE X
     output, error = execute_ssh_command(host, command_route)
-    # Segundo show route donde aprendo la IP
     host_nex_hop = find_relevant_hop(output, ip_analizer)
     search_segments = '.'.join(ip_analizer.split('.')[:3])
 
+    '''
+        Comprueba si la IP de busqueda esta o no en el mismo PE
+
+        Para obtener la IP donde se aprende ip_analizer y la sub if del usuario que usa 
+        dicha IP, la primera IP del show route debe concidir con los primeros 3 segmentos del comando. Si 
+        luego no hay from la IP a analizar se encuentra en el mismo PE y no se debe seleccionar la sub if.
+    '''
     if (not host_nex_hop) and (search_segments in output):
-        # La IP objetivo es manejada localmente
+        # La IP objetivo se aprende localmente
         output, error = execute_ssh_command(host, command_route)
         sub_interface = find_relevant_sub_interface(output, ip_analizer)
         sub_interface_vlan = find_sub_interface_vlan(sub_interface, ip_analizer)
@@ -110,7 +120,7 @@ if __name__ == "__main__":
         id_service = find_id_service(output)
     
     else:
-        # La IP objetivo es manejada remotamente
+        # La IP objetivo se aprende remotamente
         output, error = execute_ssh_command(host_nex_hop, command_route)
         sub_interface = find_relevant_sub_interface(output, ip_analizer)
         sub_interface_vlan = find_sub_interface_vlan(sub_interface, ip_analizer)
