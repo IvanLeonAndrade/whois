@@ -52,9 +52,10 @@ def execute_ssh_command(host, command):
 
     return output, error
 
+
+
 if __name__ == "__main__":
-    print('Info de la IP 186.0.196.225')
-    host = '<' # PE Cualquiera
+    host = '186.0.255.32' # PE Cualquiera
     command_route = 'show route 186.0.196.225'
     command_configuration = 'show configuration | display set | match ' 
     host_nex_hop = None
