@@ -3,26 +3,33 @@ import sys
 import re
 
 # Busca un patrón que corresponda a una dirección IP después de la palabra 'from'
-def find_next_hop(output):
-    match = re.search(r'from (\d+\.\d+\.\d+\.\d+)', output)
+def find_relevant_hop(output, search_ip):
+    # Descomponer la IP de búsqueda en sus primeros tres segmentos
+    search_segments = '.'.join(search_ip.split('.')[:3])
+
+    # Buscar en la salida del comando una entrada que coincida con esos segmentos
+    # y verificar si hay una cláusula 'from'
+    pattern = re.compile(rf'{search_segments}\.\d+/\d+.*?\n')
+    match = pattern.search(output)
+
     if match:
-        return match.group(1)  # Devuelve la dirección IP encontrada
+        if 'from' in match.group(0):
+            # Extrae la dirección IP después de 'from'
+            from_ip = re.search(r'from (\d+\.\d+\.\d+\.\d+)', match.group(0))
+            if from_ip:
+                return from_ip.group(1)  # Devuelve la dirección IP encontrada después de 'from'
+        else:
+            # No hay cláusula 'from', asumir que es el mismo equipo
+            return None
     return None
 
-def find_sub_interface(output):
-    # Busca un patrón que corresponda a una subinterfaz después de la palabra 'via', excluyendo 'ae0.0'
-    matches = re.findall(r'via ((?!ae0\.0)\S+)', output)
-    for match in matches:
-        if match != 'ae0.0':  # Asegúrate de que no sea 'ae0.0'
-            return match
-    return None
 
 def find_relevant_sub_interface(output, search_ip):
     # Descomponer la IP de búsqueda en sus primeros tres segmentos
     search_segments = '.'.join(search_ip.split('.')[:3])
 
     # Buscar en la salida del comando una entrada que coincida con esos segmentos
-    pattern = re.compile(rf'{search_segments}\.\d+/\d+.*?via (\S+)', re.DOTALL)
+    pattern = re.compile(rf'{search_segments}\.\d+/\d+\s+\*\[Direct.*?via (\S+)', re.DOTALL)
     match = pattern.search(output)
 
     if match:
@@ -42,20 +49,7 @@ def find_id_service(output):
     if match:
         description_line = match.group(1)
         return description_line 
-
-def find_relevant_hop(output, search_ip):
-    # Descomponer la IP de búsqueda en sus primeros tres segmentos
-    search_segments = '.'.join(search_ip.split('.')[:3])
-
-    # Buscar en la salida del comando una entrada que coincida con esos segmentos
-    pattern = re.compile(rf'{search_segments}\.\d+/\d+.*?from (\d+\.\d+\.\d+\.\d+)', re.DOTALL)
-    match = pattern.search(output)
-
-    if match:
-        return match.group(1)  # Devuelve la dirección IP encontrada después de 'from'
-    return None
     
-
 def execute_ssh_command(host, command):
     username = 'iandrade'
     password = 'transistor13'
@@ -80,12 +74,10 @@ def execute_ssh_command(host, command):
 
 
 if __name__ == "__main__":
-    host = '186.0.255.32' # PE Cualquiera
+    host = '186.0.255.41' 
     ip_analizer = '200.61.16.80'
     command_route = 'show route '
     command_route += ip_analizer
-    print(command_route)
-    
     command_configuration = 'show configuration | display set | match ' 
     host_nex_hop = None
     id_service = None
@@ -94,30 +86,32 @@ if __name__ == "__main__":
     
     # primer show route en PE X
     output, error = execute_ssh_command(host, command_route)
-    print(output)
-    
-
     # Segundo show route donde aprendo la IP
     host_nex_hop = find_relevant_hop(output, ip_analizer)
+    print(host_nex_hop)
+    #sys.exit()
+    search_segments = '.'.join(ip_analizer.split('.')[:3])
+
+    if (not host_nex_hop) and (search_segments in output):
+        # La IP objetivo es manejada localmente
+        output, error = execute_ssh_command(host, command_route)
+        sub_interface = find_relevant_sub_interface(output, ip_analizer)
+        sub_interface_vlan = find_sub_interface_vlan(sub_interface)
+
+        command_configuration += sub_interface_vlan
+        output, error = execute_ssh_command(host, command_configuration)
+        id_service = find_id_service(output)
     
+    else:
+        # La IP objetivo es manejada remotamente
+        output, error = execute_ssh_command(host_nex_hop, command_route)
+        sub_interface = find_relevant_sub_interface(output, ip_analizer)
+        sub_interface_vlan = find_sub_interface_vlan(sub_interface)
 
-    # Obtengo la sub IF del cliente que usa la IP
-    output, error = execute_ssh_command(host_nex_hop, command_route)
-    print(output)
-    sub_interface = find_relevant_sub_interface(output, ip_analizer)
+        command_configuration += sub_interface_vlan
+        output, error = execute_ssh_command(host_nex_hop, command_configuration)
+        id_service = find_id_service(output)
 
-    # Obtengo la vlan de la sub IF
-    sub_interface_vlan = find_sub_interface_vlan(sub_interface)
-
-    # Configuracion machiando x la vlan
-    command_configuration += sub_interface_vlan
-    print(command_configuration)
-
-    output, error = execute_ssh_command(host_nex_hop, command_configuration)
-    print(output)
-
-    # Obtengo el ID de servicio
-    id_service = find_id_service(output)
     print('host_nex_hop: ', host_nex_hop)
     print('sub_interface', sub_interface)
     print('sub_interface_vlan: ', sub_interface_vlan)
