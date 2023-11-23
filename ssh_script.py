@@ -66,10 +66,10 @@ def execute_ssh_command(host, command):
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     client.connect(host, port, username, password)
 
-    # Ejecutar el comando principal
+    # Comando principal
     stdin, stdout, stderr = client.exec_command(command)
 
-    # Asegurarse de obtener toda la salida
+    # Chequea que haya la salida
     stdout.channel.recv_exit_status()
 
     output = stdout.read().decode()
@@ -77,7 +77,6 @@ def execute_ssh_command(host, command):
     client.close()
 
     return output, error
-
 
     '''
         @ip_analizer: IP de busqueda/objetivo
