@@ -1,4 +1,5 @@
 import paramiko
+import sys
 import re
 
 # Busca un patrón que corresponda a una dirección IP después de la palabra 'from'
@@ -29,6 +30,18 @@ def find_id_service(output):
     if match:
         description_line = match.group(1)
         return description_line 
+
+def find_relevant_hop(output, search_ip):
+    # Descomponer la IP de búsqueda en sus primeros tres segmentos
+    search_segments = '.'.join(search_ip.split('.')[:3])
+
+    # Buscar en la salida del comando una entrada que coincida con esos segmentos
+    pattern = re.compile(rf'{search_segments}\.\d+/\d+.*?from (\d+\.\d+\.\d+\.\d+)', re.DOTALL)
+    match = pattern.search(output)
+
+    if match:
+        return match.group(1)  # Devuelve la dirección IP encontrada después de 'from'
+    return None
     
 
 def execute_ssh_command(host, command):
@@ -56,7 +69,11 @@ def execute_ssh_command(host, command):
 
 if __name__ == "__main__":
     host = '186.0.255.32' # PE Cualquiera
-    command_route = 'show route 186.0.196.225'
+    ip_analizer = '200.61.16.80'
+    command_route = 'show route '
+    command_route += ip_analizer
+    print(command_route)
+    
     command_configuration = 'show configuration | display set | match ' 
     host_nex_hop = None
     id_service = None
@@ -66,9 +83,12 @@ if __name__ == "__main__":
     # primer show route en PE X
     output, error = execute_ssh_command(host, command_route)
     print(output)
+    
 
     # Segundo show route donde aprendo la IP
-    host_nex_hop = find_next_hop(output)
+    host_nex_hop = find_relevant_hop(output, ip_analizer)
+    print(host_nex_hop)
+    sys.exit()
 
     # Obtengo la sub IF del cliente que usa la IP
     output, error = execute_ssh_command(host_nex_hop, command_route)
