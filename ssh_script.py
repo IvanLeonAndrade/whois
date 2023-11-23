@@ -32,7 +32,10 @@ def find_id_service(output):
         return description_line 
     
 
-def execute_ssh_command(host, port, username, password, command):
+def execute_ssh_command(host, command):
+    username = 'iandrade'
+    password = 'transistor13'
+    port = 22
     client = paramiko.SSHClient()
     client.load_system_host_keys()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -50,53 +53,63 @@ def execute_ssh_command(host, port, username, password, command):
 
     return output, error
 
-    
+
 
 if __name__ == "__main__":
 
-    host = '186.0.255.29' # PE Cualquiera
-    port = 22
-    username = 'iandrade'
-    password = 'transistor13'
-    command = 'show route 186.0.123.134'
-    ip_from = None #IP del PE donde aprende la IP a analizar
+    host = '186.0.255.53' # PE Cualquiera
+    command = 'show route 186.0.196.225'
+    ip_from = None #IP del PE donde se aprende la IP a analizar
+
     host2 = None
     id_service = None
 
     # Me conecto al PE con IP 186.0.255.32 y  ejecuto el primer command
-    output, error = execute_ssh_command(host, port, username, password, command)
-    #print(output)
-    
-    # El resultado anterior lo filtro para tener la IP del PE donde aprendo la IP del comando principal
-    ip_from = find_next_hop(output)
-
-
-    # Ahora me conecto al PE con la IP de ip_from
-    host2 = ip_from # Elijo cualquier PE
-    output, error = execute_ssh_command(host2, port, username, password, command)
-    #print(output)
+    output, error = execute_ssh_command(host, command)
     sub_interface = find_client_subinterface(output)
-    #print('valor sub_IF', sub_interface)
-    if sub_interface:
-        sub_interface_vlan = find_subinterface_vlan(sub_interface)
-        # ahora veo la config de esa vlan en el PE principal 
-        command2 = 'show configuration | display set | match {}'.format(sub_interface_vlan)
-        #print('comando 2', command2)
-        output, error = execute_ssh_command(host2, port, username, password, command2)
-        #print(output)
-        id_service = find_id_service(output)
+
+    if "*[BGP/170]" in output and "via ae0.0," in output:
+        # La ruta se aprende a través de otro router, buscar el siguiente hop
+        ip_from = find_next_hop(output)
+        if ip_from:
+            print("Aprendo IP: ", ip_from)
+            host2 = ip_from
+            output, error = execute_ssh_command(host2, command)
+            sub_interface = find_client_subinterface(output)
+            print("sub if: ", sub_interface)
+            if sub_interface:
+                sub_interface_vlan = find_subinterface_vlan(sub_interface)
+                command2 = 'show configuration | display set | match {}'.format(sub_interface_vlan)
+                output, error = execute_ssh_command(host2, command2)
+                id_service = find_id_service(output)
+                print("IUS: ", id_service)
+            else:
+                print("No se encontró la subinterfaz adecuada.")
+        else:
+            print("No se encontró el siguiente hop.")
+            host2 = ip_from
+            output, error = execute_ssh_command(host2, command)
+            sub_interface = find_client_subinterface(output)
+            if sub_interface:
+                sub_interface_vlan = find_subinterface_vlan(sub_interface)
+                # Procesar la VLAN como necesites
+                # ...
+            else:
+                print("No se encontró la subinterfaz adecuada.")
     else:
-        print("No se encontró la subinterfaz adecuada.")
-        sub_interface_vlan = None
-   
-    print("IP FROM: ", ip_from)
-    print("SUB IF ", sub_interface)
-    print("SUB IF VLAN ", sub_interface_vlan)
-    print('IUS: ', id_service)
+        # La ruta no se aprende a través de ae0.0, se maneja localmente
+        if sub_interface:
+            sub_interface_vlan = find_subinterface_vlan(sub_interface)
+            sub_interface_vlan = find_subinterface_vlan(sub_interface)
+            command2 = 'show configuration | display set | match {}'.format(sub_interface_vlan)
+            output, error = execute_ssh_command(host, command2)
+            id_service = find_id_service(output)
+        else:
+            print("No se encontró la subinterfaz adecuada.")
 
 
 
 
 
-    if error:
-        print("Error:", error)
+if error:    
+    print("Error:", error)
