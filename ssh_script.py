@@ -63,8 +63,8 @@ def find_id_service(output):
         return description_line 
     
 def execute_ssh_command(host, command):
-    username = 'iandrade'
-    password = 'transistor13'
+    username = 'user'
+    password = 'pass'
     port = 22
     client = paramiko.SSHClient()
     client.load_system_host_keys()
